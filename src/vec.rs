@@ -26,10 +26,30 @@ impl<T: Debug, const M: usize> Debug for VecMin<T, M> {
 
 // --- Custom ---
 impl<T, const M: usize> VecMin<T, M> {
+    /// Assertion that that the length of the vector is at least `M`.
+    #[inline]
+    #[track_caller]
+    pub const fn assert_invariant(&self) {
+        assert!(self.vec.len() >= M);
+    }
+
+    /// Debug assertion that that the length of the vector is at least `M`.
+    #[inline]
+    #[track_caller]
+    pub const fn debug_assert_invariant(&self) {
+        debug_assert!(self.vec.len() >= M);
+    }
+
     /// Returns the minimum length of the vector.
     #[inline]
     pub const fn min_len(&self) -> usize {
         M
+    }
+
+    /// Returns `true` if the length of the vector is equal to the minimum length `M`.
+    #[inline]
+    pub const fn is_min(&self) -> bool {
+        self.vec.len() == M
     }
 
     /// Returns a slice to the first `M` elements of the vector, which are guaranteed to exist.
@@ -47,36 +67,20 @@ impl<T, const M: usize> VecMin<T, M> {
     /// Returns a tuple of a slice to the first `M` elements of the vector, which are guaranteed to exist, and a slice to the remaining elements of the vector.
     #[inline]
     pub const fn split_at_min(&self) -> (&[T; M], &[T]) {
-        debug_assert!(self.vec.len() >= M);
+        self.debug_assert_invariant();
 
-        // Safety: Structural invariant that the `Vec` has a minimum length of `M`.
-        let min = unsafe { &*self.vec.as_ptr().cast() };
-
-        // Safety: Structural invariant that the `Vec` has a minimum length of `M`.
-        let extra = unsafe {
-            let data = self.vec.as_ptr().add(M);
-            let len = self.vec.len() - M;
-            slice::from_raw_parts(data, len)
-        };
-
+        let (min, extra) = unsafe { self.vec.as_slice().split_at_unchecked(M) };
+        let min = unsafe { &*(min.as_ptr() as *const [T; M]) };
         (min, extra)
     }
 
     /// Returns a tuple of a mutable slice to the first `M` elements of the vector, which are guaranteed to exist, and a mutable slice to the remaining elements of the vector.
     #[inline]
     pub const fn split_at_min_mut(&mut self) -> (&mut [T; M], &mut [T]) {
-        debug_assert!(self.vec.len() >= M);
+        self.debug_assert_invariant();
 
-        // Safety: Structural invariant that the `Vec` has a minimum length of `M`.
-        let min = unsafe { &mut *self.vec.as_mut_ptr().cast() };
-
-        // Safety: Structural invariant that the `Vec` has a minimum length of `M`.
-        let extra = unsafe {
-            let data = self.vec.as_mut_ptr().add(M);
-            let len = self.vec.len() - M;
-            slice::from_raw_parts_mut(data, len)
-        };
-
+        let (min, extra) = unsafe { self.vec.as_mut_slice().split_at_mut_unchecked(M) };
+        let min = unsafe { &mut *(min.as_mut_ptr() as *mut [T; M]) };
         (min, extra)
     }
 }
