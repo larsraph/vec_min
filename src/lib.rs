@@ -2,10 +2,8 @@
 pub mod smallvec;
 pub mod vec;
 
-use core::{fmt, slice};
 use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use std::ops::{self, Bound, Range, RangeBounds, RangeTo};
+use std::fmt::{self, Debug, Display, Formatter};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ModifyError<const M: usize>;
@@ -20,6 +18,8 @@ impl<const M: usize> Display for ModifyError<M> {
 }
 
 impl<const M: usize> Error for ModifyError<M> {}
+
+use std::ops::{Bound, Range, RangeBounds, RangeTo};
 
 #[inline]
 #[track_caller]
