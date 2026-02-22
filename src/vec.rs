@@ -41,7 +41,23 @@ impl<T, const M: usize> VecMin<T, M> {
     /// Returns a mutable slice to the first `M` elements of the vector, which are guaranteed to exist.
     #[inline]
     pub const fn min_slice_mut(&mut self) -> &mut [T; M] {
-        unsafe { &mut *(self.vec.as_ptr() as *mut [T; M]) }
+        unsafe { &mut *(self.vec.as_mut_ptr() as *mut [T; M]) }
+    }
+
+    /// Returns a tuple of a slice to the first `M` elements of the vector, which are guaranteed to exist, and a slice to the remaining elements of the vector.
+    #[inline]
+    pub fn split_at_min(&self) -> (&[T; M], &[T]) {
+        let min = unsafe { &*(self.vec.as_ptr() as *const [T; M]) };
+        let extra = unsafe { self.vec.get_unchecked(M..) };
+        (min, extra)
+    }
+
+    /// Returns a tuple of a mutable slice to the first `M` elements of the vector, which are guaranteed to exist, and a mutable slice to the remaining elements of the vector.
+    #[inline]
+    pub fn split_at_min_mut(&mut self) -> (&mut [T; M], &mut [T]) {
+        let min = unsafe { &mut *(self.vec.as_mut_ptr() as *mut [T; M]) };
+        let extra = unsafe { self.vec.get_unchecked_mut(M..) };
+        (min, extra)
     }
 }
 
@@ -73,16 +89,21 @@ impl<T, const M: usize> VecMin<T, M> {
         Self { vec }
     }
 
-    /// Creates a new `VecMin` from any type that can be converted into a `Vec`,
-    /// returning an error if the length of the provided `Vec` is less than `M`.
+    /// Creates a new `VecMin` from a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
     #[inline]
-    pub fn new(vec: impl Into<Vec<T>>) -> Result<Self, ConstructError<T, M>> {
-        let vec = vec.into();
+    pub const fn const_new(vec: Vec<T>) -> Result<Self, ConstructError<T, M>> {
         if vec.len() >= M {
             Ok(unsafe { Self::new_unchecked(vec) })
         } else {
             Err(ConstructError(vec))
         }
+    }
+
+    /// Creates a new `VecMin` from any type that can be converted into a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
+    #[inline]
+    pub fn new(vec: impl Into<Vec<T>>) -> Result<Self, ConstructError<T, M>> {
+        let vec = vec.into();
+        Self::const_new(vec)
     }
 
     /// Creates a new `VecMin` from an iterator, returning an error if the length of the collected `Vec` is less than `M`.
@@ -221,14 +242,15 @@ impl<T: Clone, const N: usize, const M: usize> TryFrom<&mut [T; N]> for VecMin<T
     }
 }
 
-impl<T, const N: usize, const M: usize> TryInto<[T; N]> for VecMin<T, M> {
+impl<T, const N: usize, const M: usize> TryFrom<VecMin<T, M>> for [T; N] {
     type Error = VecMin<T, M>;
 
     #[inline]
-    fn try_into(self) -> Result<[T; N], Self::Error> {
-        self.vec
+    fn try_from(vec_min: VecMin<T, M>) -> Result<[T; N], Self::Error> {
+        vec_min
+            .vec
             .try_into()
-            .map_err(|vec| unsafe { Self::new_unchecked(vec) })
+            .map_err(|vec| unsafe { VecMin::new_unchecked(vec) })
     }
 }
 
@@ -344,20 +366,14 @@ impl<'a, T: 'a, const M: usize> IntoIterator for &'a mut VecMin<T, M> {
 impl<T, const M: usize> VecMin<T, M> {
     /// See [`Vec::capacity`].
     #[inline]
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.vec.capacity()
     }
 
     /// See [`Vec::len`].
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.vec.len()
-    }
-
-    /// See [`Vec::is_empty`].
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.vec.is_empty()
     }
 }
 
@@ -437,7 +453,7 @@ impl<T, const M: usize> VecMin<T, M> {
     #[inline]
     pub fn extend_from_within<R>(&mut self, range: R)
     where
-        R: std::ops::RangeBounds<usize>,
+        R: RangeBounds<usize>,
         T: Clone,
     {
         self.vec.extend_from_within(range);
@@ -483,7 +499,6 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::pop`]. Doesn't check if the operation would reduce the length of the vector below `M`.
     #[inline]
-    #[must_use]
     pub unsafe fn pop_unchecked(&mut self) -> Option<T> {
         self.vec.pop()
     }
@@ -530,7 +545,6 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::remove`]. Doesn't check if the operation would reduce the length of the vector below `M`.
     #[inline]
-    #[must_use]
     pub unsafe fn remove_unchecked(&mut self, index: usize) -> T {
         self.vec.remove(index)
     }
@@ -548,7 +562,6 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::swap_remove`]. Doesn't check if the operation would reduce the length of the vector below `M`.
     #[inline]
-    #[must_use]
     pub unsafe fn swap_remove_unchecked(&mut self, index: usize) -> T {
         self.vec.swap_remove(index)
     }
@@ -598,7 +611,6 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::resize`]. Resizes the vector to `new_len` if `new_len` is greater than or equal to `M`, otherwise resizes the vector to `M`.
     #[inline]
-    #[must_use]
     pub fn resize_or_min(&mut self, new_len: usize, value: T)
     where
         T: Clone,
@@ -608,7 +620,6 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::resize`]. Doesn't check if the operation would reduce the length of the vector below `M`.
     #[inline]
-    #[must_use]
     pub unsafe fn resize_unchecked(&mut self, new_len: usize, value: T)
     where
         T: Clone,
@@ -632,7 +643,6 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::resize_with`]. Resizes the vector to `new_len` if `new_len` is greater than or equal to `M`, otherwise resizes the vector to `M`.
     #[inline]
-    #[must_use]
     pub fn resize_or_min_with<F>(&mut self, new_len: usize, generator: F)
     where
         F: FnMut() -> T,
@@ -642,7 +652,6 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::resize_with`]. Doesn't check if the operation would reduce the length of the vector below `M`.
     #[inline]
-    #[must_use]
     pub unsafe fn resize_with_unchecked<F>(&mut self, new_len: usize, generator: F)
     where
         F: FnMut() -> T,
@@ -667,7 +676,7 @@ impl<T, const M: usize> VecMin<T, M> {
     }
 
     /// See [`Vec::drain`]. Doesn't check if the operation would reduce the length of the vector below `M`.
-    #[must_use]
+    #[inline]
     pub unsafe fn drain_unchecked<R>(&mut self, range: R) -> vec::Drain<'_, T>
     where
         R: RangeBounds<usize>,
@@ -675,9 +684,9 @@ impl<T, const M: usize> VecMin<T, M> {
         self.vec.drain(range)
     }
 
-    /// See [`Vec::splice`]. Returns an error if the operation would reducd the lenfth of the vector below `M`.
+    /// See [`Vec::splice`]. Returns an error if the operation would reduce the length of the vector below `M`.
     ///
-    /// Requires `replace_with` to bexome an ExaxtSizeIterator unike [`Vec::splice`]
+    /// Requires `replace_with` to become an ExactSizeIterator unlike [`Vec::splice`]
     #[must_use]
     pub fn splice<R, I>(
         &mut self,
@@ -702,7 +711,7 @@ impl<T, const M: usize> VecMin<T, M> {
     }
 
     /// See [`Vec::splice`]. Doesn't check if the operation would reduce the length of the vector below `M`.
-    #[must_use]
+    #[inline]
     pub unsafe fn splice_unchecked<R, I>(
         &mut self,
         range: R,
