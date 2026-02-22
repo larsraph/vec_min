@@ -10,6 +10,8 @@ use core::slice;
 
 use crate::{ModifyError, slice_range};
 
+pub type VecOne<T> = VecMin<T, 1>;
+
 #[repr(transparent)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VecMin<T, const M: usize> {
@@ -34,7 +36,7 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// Returns the minimum length of the vector.
     #[inline]
-    pub const fn min_len(&self) -> usize {
+    pub const fn min(&self) -> usize {
         M
     }
 
@@ -410,17 +412,6 @@ impl<'a, T: Copy, const M: usize> Extend<&'a T> for VecMin<T, M> {
 
 // -- Len Decreasing --
 impl<T, const M: usize> VecMin<T, M> {
-    /// See [`Vec::pop`]. Returns an error if the operation would reduce the length of the vector below `M`.
-    #[inline]
-    #[must_use = "this operation may fail"]
-    pub fn pop(&mut self) -> Result<T, ModifyError<M>> {
-        if self.vec.len() > M {
-            Ok(self.vec.pop().unwrap())
-        } else {
-            Err(ModifyError)
-        }
-    }
-
     /// See [`Vec::pop`]. Pops an element from the vector if the length of the vector is greater than `M`, otherwise does nothing and returns `None`.
     #[inline]
     pub fn pop_to_min(&mut self) -> Option<T> {
@@ -428,17 +419,6 @@ impl<T, const M: usize> VecMin<T, M> {
             self.vec.pop()
         } else {
             None
-        }
-    }
-
-    /// See [`Vec::pop_if`]. Returns an error if the operation would reduce the length of the vector below `M`.
-    #[inline]
-    #[must_use = "this operation may fail"]
-    pub fn pop_if(&mut self, pred: impl FnOnce(&mut T) -> bool) -> Result<T, ModifyError<M>> {
-        if self.vec.len() > M {
-            Ok(self.vec.pop_if(pred).unwrap())
-        } else {
-            Err(ModifyError)
         }
     }
 
