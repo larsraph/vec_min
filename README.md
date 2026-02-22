@@ -1,1 +1,1 @@
-# vec_min
+# VecMin
