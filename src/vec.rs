@@ -635,34 +635,6 @@ impl<T, const M: usize> VecMin<T, M> {
         }
     }
 
-    /// See [`Vec::splice`]. Returns an error if the operation would reduce the length of the vector below `M`.
-    ///
-    /// # Note
-    /// Unlike [`Vec::splice`] requires `replace_with` to become an ExactSizeIterator in order to check the final length.
-    #[must_use = "this operation may fail"]
-    pub fn splice_exact<R, I>(
-        &mut self,
-        range: R,
-        replace_with: I,
-    ) -> Result<vec::Splice<'_, I::IntoIter>, ModifyError<M>>
-    where
-        R: RangeBounds<usize>,
-        I: IntoIterator<Item = T, IntoIter: ExactSizeIterator>,
-    {
-        let replace_with = replace_with.into_iter();
-
-        let gain = replace_with.len();
-        let loss = slice_range(&range, ..self.vec.len()).len();
-        // loss <= self.vec.len(); we forward any overflowing gains to the `Vec`.
-        let final_len = (self.vec.len() - loss).saturating_add(gain);
-
-        if final_len >= M {
-            Ok(self.vec.splice(range, replace_with))
-        } else {
-            Err(ModifyError)
-        }
-    }
-
     /// See [`Vec::split_off`]. Returns an error if the operation would reduce the length of the vector below `M`.
     #[inline]
     #[must_use = "this operation may fail"]
