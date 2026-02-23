@@ -15,18 +15,9 @@ use crate::{ModifyError, slice_range};
 pub type VecOne<T> = VecMin<T, 1>;
 
 #[repr(transparent)]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VecMin<T, const M: usize> {
     vec: Vec<T>,
-}
-
-impl<T: Debug, const M: usize> Debug for VecMin<T, M> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("VecMin")
-            .field("min", &M)
-            .field("vec", &self.vec)
-            .finish()
-    }
 }
 
 // --- Custom ---
@@ -132,8 +123,7 @@ impl<T, const M: usize> VecMin<T, M> {
     /// Creates a new `VecMin` from any type that can be converted into a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
     #[inline]
     pub fn new(vec: impl Into<Vec<T>>) -> Result<Self, ConstructError<T, M>> {
-        let vec = vec.into();
-        Self::new_from_vec(vec)
+        Self::new_from_vec(vec.into())
     }
 
     /// Creates a new `VecMin` from an iterator, returning an error if the length of the collected `Vec` is less than `M`.
