@@ -4,6 +4,9 @@ pub mod vec;
 
 extern crate alloc;
 
+#[doc(hidden)]
+pub extern crate alloc as __alloc;
+
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::ops::{Bound, Range, RangeBounds, RangeTo};
@@ -25,7 +28,6 @@ impl<const M: usize> Display for ModifyError<M> {
 
 impl<const M: usize> Error for ModifyError<M> {}
 
-/// Copied from `smallvec` who copied from unstable `slice::range` in `core` to avoid depending on unstable features.
 #[inline]
 #[track_caller]
 fn slice_range<R>(range: &R, bounds: RangeTo<usize>) -> Range<usize>
@@ -62,50 +64,64 @@ where
     Range { start, end }
 }
 
-#[test]
-pub fn test() {
-    let a = vec1![1i32, 2, 3];
-    let b = vec1![2; 3];
-
-    let a = vecmin![5; [1; 5]];
-    let b = vecmin![5; [1, 1, 1, 1, 1]];
-    let c = vecmin![1; 5];
-    let d = vecmin![1, 2, 3];
-    let e = vecmin![1; [1; 0]];
-}
-
+/// Creates a [`VecOne`] containing the arguments.
+///
+/// `vecone!` allows `VecOne`s to be defined with similar syntax to `vec!`, but with a minimum length of 1.
 #[macro_export]
-macro_rules! vec1 {
-    () => {
-        compile_error!("VecOne needs at least 1 element")
-    };
-    ($elem:expr; 0) => {
-        compile_error!("VecOne needs at least 1 element")
-    };
-    ($($x:expr),* $(,)?) => {
-        $crate::VecOne::new_from_vec(<[_]>::into_vec(::alloc::boxed::Box::new([$($x),+]))).expect("infallible")
+macro_rules! vecone {
+    ($($x:expr),+ $(,)?) => {
+        $crate::vecmin![1; [ $($x),+ ]]
     };
     ($elem:expr; $n:expr) => {
-        $crate::VecOne::new_from_vec(::alloc::vec::from_elem($elem, $n)).expect("infallible")
+        $crate::vecmin![1; [$elem; $n]]
     };
 }
 
+/// Creates a [`VecMin`] containing the arguments.
+///
+/// There is a minimum length argument preceding the list, if not included the minimum is inferred as the length.
+/// The length must be constant, for non-constant length use checked constructors.
+///
+/// - Create a [`VecMin`] with a fixed minimum length:
+/// ```
+/// use vec_min::vecmin;
+///
+/// let v = vecmin![5; [1; 6]];
+/// assert!(!v.is_minimum());
+/// assert_eq!(v.minimum(), 5);
+///
+/// let v = vecmin![2; [1, 2, 3]];
+/// assert!(!v.is_minimum());
+/// assert_eq!(v.minimum(), 2);
+/// ```
+///
+/// - Create a [`VecMin`] with a minimum length inferred from the number of elements:
+/// ```
+/// use vec_min::vecmin;
+///
+/// let v = vecmin![1; 6];
+/// assert!(v.is_minimum());
+/// assert_eq!(v.minimum(), 6);
+///
+/// let v = vecmin![1, 2, 3];
+/// assert!(v.is_minimum());
+/// assert_eq!(v.minimum(), 3);
+/// ```
 #[macro_export]
 macro_rules! vecmin {
     ($min:expr; [$x:expr; $n:expr]) => {{
-        const M: usize = $min;
-        $crate::VecMin::<_, M>::new_from_vec(::alloc::vec::from_elem($x, $n)).expect("length of vec must be greater than than minimum required")
+        let _: [(); $n - $min];
+        unsafe { $crate::VecMin::<_, $min>::from_vec_unchecked($crate::__alloc::vec![$x; $n]) }
     }};
     ($min:expr; [$($x:expr),+ $(,)?]) => {{
-        const M: usize = $min;
-        $crate::VecMin::<_, M>::new_from_vec(<[_]>::into_vec(::alloc::boxed::Box::new([$($x),+]))).expect("length of vec must be greater than than minimum required")
+        const N: usize = <[()]>::len(&[$( { let _ = &$x; () }),+]);
+        let _: [(); N - $min];
+        unsafe { $crate::VecMin::<_, $min>::from_vec_unchecked($crate::__alloc::vec![$($x),+]) }
     }};
-    ($x:expr; $n:expr) => {{
-        const M: usize = $n;
-        $crate::VecMin::<_, M>::new_from_vec(::alloc::vec::from_elem($x, $n)).expect("infallible")
-    }};
-    ($($x:expr),+ $(,)?) => {{
-        const M: usize = <[()]>::len(&[$( { let _ = &$x; () }),+]);
-        $crate::VecMin::<_, M>::new_from_vec(<[_]>::into_vec(::alloc::boxed::Box::new([$($x),+]))).expect("infallible")
-    }};
+    ($x:expr; $n:expr) => {
+        $crate::VecMin::from_array([$x; $n])
+    };
+    ($($x:expr),+ $(,)?) => {
+        $crate::VecMin::from_array([$($x),+])
+    };
 }

@@ -38,13 +38,13 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// Returns the minimum length of the vector.
     #[inline]
-    pub const fn min(&self) -> usize {
+    pub const fn minimum(&self) -> usize {
         M
     }
 
     /// Returns `true` if the length of the vector is equal to the minimum length `M`.
     #[inline]
-    pub const fn is_min(&self) -> bool {
+    pub const fn is_minimum(&self) -> bool {
         self.vec.len() == M
     }
 
@@ -100,12 +100,6 @@ impl<T: Debug, const M: usize> Display for ConstructError<T, M> {
 impl<T: Debug, const M: usize> Error for ConstructError<T, M> {}
 
 impl<T, const M: usize> VecMin<T, M> {
-    /// Creates a new `VecMin` from anything that can be converted into a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
-    #[inline]
-    pub fn new(vec: impl Into<Vec<T>>) -> Result<Self, ConstructError<T, M>> {
-        Self::try_from_vec(vec.into())
-    }
-
     /// Creates a new `VecMin` from a `Vec`
     ///
     /// # Safety
@@ -126,9 +120,15 @@ impl<T, const M: usize> VecMin<T, M> {
         }
     }
 
+    /// Creates a new `VecMin` from anything that can be converted into a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
+    #[inline]
+    pub fn try_new(vec: impl Into<Vec<T>>) -> Result<Self, ConstructError<T, M>> {
+        Self::try_from_vec(vec.into())
+    }
+
     /// Creates a new `VecMin` from an array containing the minimum elements.
     #[inline]
-    pub const fn from_array(array: [T; M]) -> Self {
+    pub fn from_array(array: [T; M]) -> Self {
         // Safety: An array of length `M` is guaranteed to have a length of at least `M`.
         unsafe { Self::from_vec_unchecked(array.into()) }
     }
@@ -152,7 +152,7 @@ impl<T, const M: usize> VecMin<T, M> {
         let mut vec = Vec::with_capacity(capacity);
         vec.extend(iter);
 
-        Self::new(vec)
+        Self::try_new(vec)
     }
 
     /// Returns the inner `Vec`, consuming the `VecMin`.
@@ -188,7 +188,7 @@ impl<T, const M: usize> TryFrom<Vec<T>> for VecMin<T, M> {
 
     #[inline]
     fn try_from(vec: Vec<T>) -> Result<Self, Self::Error> {
-        Self::new(vec)
+        Self::try_new(vec)
     }
 }
 
@@ -204,7 +204,7 @@ impl<T, const M: usize> TryFrom<Box<[T]>> for VecMin<T, M> {
 
     #[inline]
     fn try_from(boxed_slice: Box<[T]>) -> Result<Self, Self::Error> {
-        Self::new(boxed_slice)
+        Self::try_new(boxed_slice)
     }
 }
 
@@ -220,7 +220,7 @@ impl<T: Clone, const M: usize> TryFrom<&[T]> for VecMin<T, M> {
 
     #[inline]
     fn try_from(slice: &[T]) -> Result<Self, Self::Error> {
-        Self::new(slice)
+        Self::try_new(slice)
     }
 }
 
@@ -229,7 +229,7 @@ impl<T: Clone, const M: usize> TryFrom<&mut [T]> for VecMin<T, M> {
 
     #[inline]
     fn try_from(slice: &mut [T]) -> Result<Self, Self::Error> {
-        Self::new(slice)
+        Self::try_new(slice)
     }
 }
 
@@ -238,7 +238,7 @@ impl<T: Clone, const M: usize> TryFrom<Cow<'_, [T]>> for VecMin<T, M> {
 
     #[inline]
     fn try_from(cow: Cow<'_, [T]>) -> Result<Self, Self::Error> {
-        Self::new(cow)
+        Self::try_new(cow)
     }
 }
 
@@ -247,7 +247,7 @@ impl<T, const N: usize, const M: usize> TryFrom<[T; N]> for VecMin<T, M> {
 
     #[inline]
     fn try_from(array: [T; N]) -> Result<Self, Self::Error> {
-        Self::new(array)
+        Self::try_new(array)
     }
 }
 
@@ -256,7 +256,7 @@ impl<T: Clone, const N: usize, const M: usize> TryFrom<&[T; N]> for VecMin<T, M>
 
     #[inline]
     fn try_from(array: &[T; N]) -> Result<Self, Self::Error> {
-        Self::new(array)
+        Self::try_new(array)
     }
 }
 
@@ -265,7 +265,7 @@ impl<T: Clone, const N: usize, const M: usize> TryFrom<&mut [T; N]> for VecMin<T
 
     #[inline]
     fn try_from(array: &mut [T; N]) -> Result<Self, Self::Error> {
-        Self::new(array)
+        Self::try_new(array)
     }
 }
 
@@ -278,7 +278,7 @@ impl<T, const N: usize, const M: usize> TryFrom<VecMin<T, M>> for [T; N] {
         vec_min
             .vec
             .try_into()
-            .map_err(|vec| unsafe { VecMin::new_unchecked(vec) })
+            .map_err(|vec| unsafe { VecMin::from_vec_unchecked(vec) })
     }
 }
 
@@ -637,9 +637,10 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// See [`Vec::splice`]. Returns an error if the operation would reduce the length of the vector below `M`.
     ///
-    /// Requires `replace_with` to become an ExactSizeIterator unlike [`Vec::splice`]
+    /// # Note
+    /// Unlike [`Vec::splice`] requires `replace_with` to become an ExactSizeIterator in order to check the final length.
     #[must_use = "this operation may fail"]
-    pub fn splice<R, I>(
+    pub fn splice_exact<R, I>(
         &mut self,
         range: R,
         replace_with: I,
