@@ -85,7 +85,7 @@ macro_rules! vecone {
 ///
 /// - Create a [`VecMin`] with a fixed minimum length:
 /// ```
-/// use vec_min::vecmin;
+/// use vecmin::vecmin;
 ///
 /// let v = vecmin![5; [1; 6]];
 /// assert!(!v.is_minimum());
@@ -98,7 +98,7 @@ macro_rules! vecone {
 ///
 /// - Create a [`VecMin`] with a minimum length inferred from the number of elements:
 /// ```
-/// use vec_min::vecmin;
+/// use vecmin::vecmin;
 ///
 /// let v = vecmin![1; 6];
 /// assert!(v.is_minimum());
