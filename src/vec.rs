@@ -100,30 +100,37 @@ impl<T: Debug, const M: usize> Display for ConstructError<T, M> {
 impl<T: Debug, const M: usize> Error for ConstructError<T, M> {}
 
 impl<T, const M: usize> VecMin<T, M> {
+    /// Creates a new `VecMin` from anything that can be converted into a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
+    #[inline]
+    pub fn new(vec: impl Into<Vec<T>>) -> Result<Self, ConstructError<T, M>> {
+        Self::try_from_vec(vec.into())
+    }
+
     /// Creates a new `VecMin` from a `Vec`
     ///
     /// # Safety
     /// - The length of the `Vec` must be at least `M`.
     #[inline]
-    pub const unsafe fn new_unchecked(vec: Vec<T>) -> Self {
+    pub const unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
         Self { vec }
     }
 
     /// Creates a new `VecMin` from a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
     #[inline]
-    pub const fn new_from_vec(vec: Vec<T>) -> Result<Self, ConstructError<T, M>> {
+    pub const fn try_from_vec(vec: Vec<T>) -> Result<Self, ConstructError<T, M>> {
         if vec.len() >= M {
             // Safety: We just checked that the length was at least `M`.
-            Ok(unsafe { Self::new_unchecked(vec) })
+            Ok(unsafe { Self::from_vec_unchecked(vec) })
         } else {
             Err(ConstructError(vec))
         }
     }
 
-    /// Creates a new `VecMin` from any type that can be converted into a `Vec`, returning an error if the length of the provided `Vec` is less than `M`.
+    /// Creates a new `VecMin` from an array containing the minimum elements.
     #[inline]
-    pub fn new(vec: impl Into<Vec<T>>) -> Result<Self, ConstructError<T, M>> {
-        Self::new_from_vec(vec.into())
+    pub const fn from_array(array: [T; M]) -> Self {
+        // Safety: An array of length `M` is guaranteed to have a length of at least `M`.
+        unsafe { Self::from_vec_unchecked(array.into()) }
     }
 
     /// Creates a new `VecMin` from an iterator, returning an error if the length of the collected `Vec` is less than `M`.
