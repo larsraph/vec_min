@@ -193,9 +193,8 @@ impl<T, const M: usize> VecMin<T, M> {
 impl<T: Default, const M: usize> Default for VecMin<T, M> {
     #[inline]
     fn default() -> Self {
-        Self {
-            vec: repeat_with(T::default).take(M).collect(),
-        }
+        // Safety: We collect `M` elements satisfying the minimum length requirement.
+        unsafe { Self::from_vec_unchecked(repeat_with(T::default).take(M).collect()) }
     }
 }
 
